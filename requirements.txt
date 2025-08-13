@@ -2,5 +2,6 @@ streamlit>=1.27.0
 pandas>=2.1.0
 numpy>=1.26.0
 pymupdf>=1.24.1
-pillow>=10.0.1
-python-barcode>=1.0.0
+pillow>=9.0.0,<10.0.0
+python-barcode==0.15.1
+pywin32==306; sys_platform == 'win32'
