@@ -1,17 +1,6 @@
-# Core
-streamlit==1.27.0
-
-# Data Processing
-pandas==2.1.0
-numpy==1.26.0
-
-# PDF & Image Handling
-PyMuPDF==1.24.1
-Pillow==10.0.1
-reportlab==4.0.0
-
-# Barcode Generation
-python-barcode==1.0.0
-
-# Temporary File Handling (for Windows compatibility)
-pywin32==306 ; sys_platform == 'win32'
+streamlit>=1.27.0
+pandas>=2.1.0
+numpy>=1.26.0
+pymupdf>=1.24.1
+pillow>=10.0.1
+python-barcode>=1.0.0
