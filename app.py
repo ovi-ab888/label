@@ -62,12 +62,12 @@ try:
     preview = page.get_pixmap(dpi=144)
     st.image(
         PILImage.open(BytesIO(preview.tobytes("png")), 
-        use_container_width=True, 
-        caption="Template Page 1 Preview"
-    )
+        try:
+    result = some_operation()
+except ValueError as ve:
+    print(f"Value error occurred: {ve}")
 except Exception as e:
-    st.error(f"Failed to load template: {str(e)}")
-    st.stop()
+    print(f"Unexpected error: {e}")
 
 # ---------- Placement controls ----------
 st.markdown("---")
