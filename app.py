@@ -8,19 +8,33 @@ import os
 from barcode import Code128, EAN13
 from barcode.writer import ImageWriter
 
-st.set_page_config(page_title="Label Generator (Illustrator → Streamlit)", layout="wide")
-st.title("🎯 Label Generator — Illustrator Template → Data → PDF")
+# Configure page
+st.set_page_config(
+    page_title="Label Generator (Illustrator → Streamlit)", 
+    layout="wide",
+    page_icon="🏷️"
+)
+st.title("🏷️ Label Generator — Illustrator Template → Data → PDF")
 
+# Sidebar controls
 with st.sidebar:
     st.header("1) Template (PDF)")
-    tpl_file = st.file_uploader("Upload Illustrator-exported PDF template", type=["pdf"])
+    tpl_file = st.file_uploader(
+        "Upload Illustrator-exported PDF template", 
+        type=["pdf"],
+        help="Upload your label template PDF or use the sample file"
+    )
     if not tpl_file:
-        st.caption("Or use ./templates/Template.pdf")
+        st.caption("Sample: ./templates/Template.pdf")
 
     st.header("2) Data (CSV)")
-    data_file = st.file_uploader("Upload CSV data", type=["csv"])
+    data_file = st.file_uploader(
+        "Upload CSV data", 
+        type=["csv"],
+        help="CSV should contain columns: PRODUCT_NAME, COLOUR, STYLE, BATCH, BARCODE"
+    )
     if not data_file:
-        st.caption("Or use ./data/Data.csv")
+        st.caption("Sample: ./data/Data.csv")
 
     st.header("3) Barcode Settings")
     barcode_type = st.selectbox("Type", ["CODE128", "EAN13"])
@@ -30,12 +44,11 @@ with st.sidebar:
 st.markdown("#### Template Preview")
 template_path = None
 if tpl_file:
-    tmp_tpl = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    tmp_tpl.write(tpl_file.read())
-    tmp_tpl.flush(); tmp_tpl.close()
-    template_path = tmp_tpl.name
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_tpl:
+        tmp_tpl.write(tpl_file.read())
+        template_path = tmp_tpl.name
 else:
-    sample_path = os.path.join("templates", "Template.pdf")
+    sample_path = os.path.join(os.path.dirname(__file__), "templates", "Template.pdf")
     if os.path.exists(sample_path):
         template_path = sample_path
     else:
@@ -43,10 +56,18 @@ else:
         st.stop()
 
 # Open template & preview first page
-doc = fitz.open(template_path)
-page = doc[0]
-preview = page.get_pixmap(dpi=144)
-st.image(PILImage.open(BytesIO(preview.tobytes("png"))), use_container_width=True, caption="Template Page 1 Preview")
+try:
+    doc = fitz.open(template_path)
+    page = doc[0]
+    preview = page.get_pixmap(dpi=144)
+    st.image(
+        PILImage.open(BytesIO(preview.tobytes("png")), 
+        use_container_width=True, 
+        caption="Template Page 1 Preview"
+    )
+except Exception as e:
+    st.error(f"Failed to load template: {str(e)}")
+    st.stop()
 
 # ---------- Placement controls ----------
 st.markdown("---")
@@ -84,11 +105,19 @@ st.subheader("Data Table")
 
 df = None
 if data_file:
-    df = pd.read_csv(data_file)
+    try:
+        df = pd.read_csv(data_file)
+    except Exception as e:
+        st.error(f"Failed to load CSV: {str(e)}")
+        st.stop()
 else:
-    sample_csv = os.path.join("data", "Data.csv")
+    sample_csv = os.path.join(os.path.dirname(__file__), "data", "Data.csv")
     if os.path.exists(sample_csv):
-        df = pd.read_csv(sample_csv)
+        try:
+            df = pd.read_csv(sample_csv)
+        except Exception as e:
+            st.error(f"Failed to load sample CSV: {str(e)}")
+            st.stop()
 
 if df is None or df.empty:
     st.warning("Please upload a CSV with columns like: PRODUCT_NAME, COLOUR, STYLE, BATCH, BARCODE")
@@ -96,7 +125,7 @@ if df is None or df.empty:
 
 st.dataframe(df, use_container_width=True)
 
-# ---------- Generate ----------
+# ---------- Generate Labels ----------
 st.markdown("---")
 st.subheader("Generate Labels")
 
@@ -108,27 +137,33 @@ with col_b:
 
 gen = st.button("🚀 Generate PDF")
 
-# Helpers
+# Helper functions
 def make_barcode_png_bytes(code_text: str, kind: str, includetext: bool=True) -> bytes:
     if not code_text or str(code_text).strip() == "":
         code_text = "000000000000"
     writer = ImageWriter()
-    if kind == "EAN13":
-        # EAN13 needs 12 digits (checksum auto)
-        digits = ''.join(ch for ch in str(code_text) if ch.isdigit())
-        if len(digits) < 12:
-            digits = digits.zfill(12)
-        bc = EAN13(digits[:12], writer=writer)
-    else:
-        bc = Code128(str(code_text), writer=writer)
-    out = BytesIO()
-    bc.write(out, options={
-        "write_text": includetext,
-        "quiet_zone": 4.0,
-        "font_size": 10,
-        "module_height": 15.0
-    })
-    return out.getvalue()
+    
+    try:
+        if kind == "EAN13":
+            # EAN13 needs 12 digits (checksum auto)
+            digits = ''.join(ch for ch in str(code_text) if ch.isdigit())
+            if len(digits) < 12:
+                digits = digits.zfill(12)
+            bc = EAN13(digits[:12], writer=writer)
+        else:
+            bc = Code128(str(code_text), writer=writer)
+        
+        out = BytesIO()
+        bc.write(out, options={
+            "write_text": includetext,
+            "quiet_zone": 4.0,
+            "font_size": 10,
+            "module_height": 15.0
+        })
+        return out.getvalue()
+    except Exception as e:
+        st.error(f"Barcode generation failed: {str(e)}")
+        return None
 
 def p2x(rect, pct):  # percent → point
     return rect.x0 + (pct/100.0) * rect.width
@@ -146,62 +181,99 @@ if gen:
     total = len(sel)
 
     for i, row in enumerate(sel.itertuples(index=False), start=1):
-        tpl = fitz.open(template_path)
-        p = tpl[0]
+        try:
+            tpl = fitz.open(template_path)
+            p = tpl[0]
 
-        # Draw text items
-        def val(obj, name):
-            try: return getattr(obj, name)
-            except Exception: return ""
+            # Draw text items
+            def val(obj, name):
+                try: 
+                    return str(getattr(obj, name)) if getattr(obj, name) is not None else ""
+                except AttributeError: 
+                    return ""
 
-        items = [
-            (val(row, "PRODUCT_NAME"), pn_x, pn_y, pn_s),
-            (val(row, "COLOUR"),       cl_x, cl_y, cl_s),
-            (val(row, "STYLE"),        st_x, st_y, st_s),
-            (val(row, "BATCH"),        bt_x, bt_y, bt_s),
-        ]
-        for text, xx, yy, size in items:
-            text = "" if text is None else str(text)
-            p.insert_text((p2x(rect, xx), p2y(rect, yy)), text, fontsize=size, color=(0,0,0))
+            items = [
+                (val(row, "PRODUCT_NAME"), pn_x, pn_y, pn_s),
+                (val(row, "COLOUR"),       cl_x, cl_y, cl_s),
+                (val(row, "STYLE"),        st_x, st_y, st_s),
+                (val(row, "BATCH"),        bt_x, bt_y, bt_s),
+            ]
+            
+            for text, xx, yy, size in items:
+                p.insert_text(
+                    (p2x(rect, xx), p2y(rect, yy)), 
+                    text, 
+                    fontsize=size, 
+                    color=(0,0,0)
+                    # fontfile= could be added for custom fonts
 
-        # Barcode
-        code_value = ""
-        if "BARCODE" in df.columns:
-            # find by name to avoid tuple index confusion
-            code_value = row[df.columns.get_loc("BARCODE")]
-        bc_png = make_barcode_png_bytes(code_value, barcode_type, includetext=includetext)
+            # Barcode
+            code_value = ""
+            if "BARCODE" in df.columns:
+                code_value = row[df.columns.get_loc("BARCODE")]
+            
+            bc_png = make_barcode_png_bytes(code_value, barcode_type, includetext)
+            if bc_png is None:
+                continue
 
-        # get image size via PIL to keep aspect
-        pil_im = PILImage.open(BytesIO(bc_png))
-        iw, ih = pil_im.size
+            # Get image size via PIL to keep aspect
+            pil_im = PILImage.open(BytesIO(bc_png))
+            iw, ih = pil_im.size
 
-        # target size based on page %
-        target_w = rect.width * (bc_w/100.0)
-        scale = target_w / iw
-        target_h = ih * scale
-        max_h = rect.height * (bc_h/100.0)
-        if target_h > max_h:
-            scale = max_h / ih
-            target_h = max_h
-            target_w = iw * scale
+            # Target size based on page %
+            target_w = rect.width * (bc_w/100.0)
+            scale = target_w / iw
+            target_h = ih * scale
+            max_h = rect.height * (bc_h/100.0)
+            if target_h > max_h:
+                scale = max_h / ih
+                target_h = max_h
+                target_w = iw * scale
 
-        x = p2x(rect, bc_x)
-        y = p2y(rect, bc_y)
-        p.insert_image(fitz.Rect(x, y, x + target_w, y + target_h), stream=bc_png)
+            x = p2x(rect, bc_x)
+            y = p2y(rect, bc_y)
+            p.insert_image(
+                fitz.Rect(x, y, x + target_w, y + target_h), 
+                stream=bc_png
+            )
 
-        out_doc.insert_pdf(tpl)
-        tpl.close()
-        progress.progress(i/total, text=f"Generating... ({i}/{total})")
+            out_doc.insert_pdf(tpl)
+            tpl.close()
+            progress.progress(i/total, text=f"Generating... ({i}/{total})")
+            
+        except Exception as e:
+            st.error(f"Error generating label for row {i}: {str(e)}")
+            continue
 
-    out_doc.save(out_pdf_path)
-    out_doc.close()
+    try:
+        out_doc.save(out_pdf_path)
+        out_doc.close()
 
-    # Preview + Download
-    prev_doc = fitz.open(out_pdf_path)
-    prev_pix = prev_doc[0].get_pixmap(dpi=144)
-    st.image(prev_pix.tobytes("ppm"), caption="Preview (first page)", use_container_width=True)
+        # Preview + Download
+        prev_doc = fitz.open(out_pdf_path)
+        prev_pix = prev_doc[0].get_pixmap(dpi=144)
+        st.image(
+            prev_pix.tobytes("ppm"), 
+            caption="Preview (first page)", 
+            use_container_width=True
+        )
 
-    with open(out_pdf_path, "rb") as f:
-        st.download_button("⬇️ Download Generated PDF", data=f.read(), file_name="labels.pdf", mime="application/pdf")
+        with open(out_pdf_path, "rb") as f:
+            st.download_button(
+                "⬇️ Download Generated PDF", 
+                data=f.read(), 
+                file_name="labels.pdf", 
+                mime="application/pdf"
+            )
 
-    st.success(f"Done! Generated {total} label page(s).")
+        st.success(f"Done! Generated {total} label page(s).")
+        
+    except Exception as e:
+        st.error(f"Failed to save PDF: {str(e)}")
+
+# Clean up temp files
+if 'template_path' in locals() and os.path.exists(template_path):
+    try:
+        os.unlink(template_path)
+    except:
+        pass
