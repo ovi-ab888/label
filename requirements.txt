@@ -1,18 +1,17 @@
+# Core
 streamlit==1.27.0
 
-# Data processing
+# Data Processing
 pandas==2.1.0
 numpy==1.26.0
-openpyxl==3.1.2
 
-# PDF handling
+# PDF & Image Handling
 PyMuPDF==1.24.1
-reportlab==4.0.0
-pdf2image==1.17.1
 Pillow==10.0.1
+reportlab==4.0.0
 
-# Barcode generation
+# Barcode Generation
 python-barcode==1.0.0
 
-# Optional image utilities
-opencv-python-headless==4.8.1.78
+# Temporary File Handling (for Windows compatibility)
+pywin32==306 ; sys_platform == 'win32'
