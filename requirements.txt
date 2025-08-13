@@ -1,19 +1,6 @@
-# Core app
-streamlit==1.27.0
-
-# Data processing
-pandas==2.1.0
-numpy==1.26.0
-openpyxl==3.1.2
-
-# PDF handling
-PyMuPDF==1.23.6        # Provides 'fitz' module
-reportlab==4.0.0
-pdf2image==1.17.1
-Pillow==10.0.0
-
-# Barcode generation
-python-barcode==1.0.0
-
-# Optional: for additional image/pdf utilities
-opencv-python-headless==4.8.1.78
+streamlit==1.37.1
+pandas==2.2.2
+Pillow==10.4.0
+PyMuPDF==1.24.9
+python-barcode==0.15.1
+reportlab==4.2.5
